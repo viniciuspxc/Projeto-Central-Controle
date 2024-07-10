@@ -39,7 +39,6 @@ int display_sensor = 0;
 
 SPIClass mySpi = SPIClass(VSPI);
 XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
-
 TFT_eSPI tft = TFT_eSPI();
 
 int x = 320 / 2; // center of display
@@ -138,9 +137,9 @@ void printTouchToDisplay(TS_Point p)
     tft.fillRect(x - buttonHoriz / 2, y, buttonHoriz, buttonVetic, TFT_RED);
     tft.setTextColor(TFT_BLACK, TFT_RED);
     tft.drawCentreString("OFF", x, y + 15, fontSize);
-    
+
     // struct off
-    pinData.pin_id = 1; 
+    pinData.pin_id = 1;
     pinData.pin_on = false;
   }
 
@@ -149,17 +148,19 @@ void printTouchToDisplay(TS_Point p)
     tft.fillRect(x - buttonHoriz / 2, y, buttonHoriz, buttonVetic, TFT_GREEN);
     tft.setTextColor(TFT_BLACK, TFT_GREEN);
     tft.drawCentreString("ON", x, y + 15, fontSize);
-    
+
     // struct on
     pinData.pin_id = 1;
     pinData.pin_on = true;
   }
 
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &pinData, sizeof(pinData));
-  if (result == ESP_OK) {
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&pinData, sizeof(pinData));
+  if (result == ESP_OK)
+  {
     Serial.println("Sent with success");
   }
-  else {
+  else
+  {
     Serial.println("Error sending the data");
   }
   delay(1000);
@@ -218,7 +219,16 @@ void loop()
 // callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Sent" : "Not Sent");
+  if (status == ESP_NOW_SEND_SUCCESS)
+  {
+    // print green icon on top right
+    tft.fillCircle(310, 10, 5, TFT_GREEN);
+  }
+  else
+  {
+    // print red icon on top right
+    tft.fillCircle(310, 10, 5, TFT_RED);
+  }
 }
 
 // callback function that will be executed when data is received
@@ -228,10 +238,10 @@ void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len)
   TS_Point p = ts.getPoint();
   printTouchToDisplay(p);
   display_sensor += 1;
-  Serial.print("Bytes received: ");
-  Serial.println(len);
-  Serial.print("id: ");
-  Serial.println(sensorData.sensor_id);
-  Serial.print("number: ");
-  Serial.println(sensorData.sensor_number);
+  // Definir as variaveis globais a ser exibidas
+
+  // Serial.print("id: ");
+  // Serial.println(sensorData.sensor_id);
+  // Serial.print("number: ");
+  // Serial.println(sensorData.sensor_number);
 }
