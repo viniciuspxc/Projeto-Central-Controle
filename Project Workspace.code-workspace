@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "cyd-screen",
+			"path": "cyd-screen"
+		},
+		{
+			"name": "esp32-base",
+			"path": "esp32-base"
+		}
+	],
+	"settings": {}
+}
