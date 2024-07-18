@@ -1,6 +1,13 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include "DHT.h"
+
+#define DPIN 15 // DHT11 HW-036)
+#define DTYPE DHT11
+DHT dht(DPIN, DTYPE);
+
+#define soil_pin 34
 
 #define LED 2
 #define BUTTON 13
@@ -20,19 +27,23 @@ void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len);
 // Structure to send
 typedef struct sensor_message
 {
-  int sensor_id;
-  float sensor_number;
+  float temperature;
+  float humidity;
+  int soil_humidity;
 } sensor_message;
 sensor_message sensorData;
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 
 void setup()
 {
-  Serial2.begin(9600);
+  Serial.begin(115200);
+  Serial.println("Serial Conectado");
 
-  WiFi.mode(WIFI_MODE_STA);                  // configura o WIFi para o Modo de estação WiFi
-  Serial2.print("Endereço MAC ESP32 PIN: "); // EC:64:C9:85:A3:9C
-  Serial2.println(WiFi.macAddress());        // retorna o endereço MAC do dispositivo
+  dht.begin();
+
+  WiFi.mode(WIFI_MODE_STA);                 // configura o WIFi para o Modo de estação WiFi
+  Serial.print("Endereço MAC ESP32 PIN: "); // EC:64:C9:85:A3:9C
+  Serial.println(WiFi.macAddress());        // retorna o endereço MAC do dispositivo
 
   pinMode(LED, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
@@ -40,7 +51,7 @@ void setup()
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK)
   {
-    Serial2.println("Error initializing ESP-NOW");
+    Serial.println("Error initializing ESP-NOW");
     return;
   }
   esp_now_register_recv_cb(OnDataReceived);
@@ -63,18 +74,31 @@ void setup()
 
 void loop()
 {
-  int buttonState = digitalRead(BUTTON);
-  if (buttonState == false)
+  float temperature = dht.readTemperature(); // temperatura C
+  // float tf = dht.readTemperature(true); // temperatura F
+  float humidity = dht.readHumidity(); // Umidade
+  if (temperature == true && humidity == true)
   {
-    digitalWrite(LED, HIGH);
-    delay(100);
-    digitalWrite(LED, LOW);
-
-    sensorData.sensor_id = 1;
-    sensorData.sensor_number = 1;
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&sensorData, sizeof(sensorData));
+    String print_string = "Temperatura: " + String(temperature) + "ºC";
+    Serial.println(print_string);
+    String print_string = "Umidade: " + String(humidity) + "ºC";
+    Serial.println(print_string);
   }
-  delay(500);
+
+  int soil_humidity = analogRead(soil_pin);
+
+  if (soil_humidity == true)
+  {
+    Serial.print("\nSoil mosture: ");
+    Serial.print(analogRead(soil_pin));
+  }
+
+  sensorData.temperature = temperature;
+  sensorData.humidity = humidity;
+  sensorData.soil_humidity = soil_humidity;
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&sensorData, sizeof(sensorData));
+
+  delay(2000);
 }
 
 // callback when data is sent

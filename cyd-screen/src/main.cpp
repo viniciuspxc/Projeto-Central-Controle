@@ -30,12 +30,16 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 // Structure to receive
 typedef struct sensor_message
 {
-  int sensor_id;
-  float sensor_number;
+  float temperature;
+  float humidity;
+  int soil_humidity;
 } sensor_message;
 sensor_message sensorData;
 void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len);
-int display_sensor = 0;
+
+float temperature;
+float humidity;
+int soil_humidity;
 
 SPIClass mySpi = SPIClass(VSPI);
 XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
@@ -129,8 +133,13 @@ void printTouchToDisplay(TS_Point p)
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.drawCentreString(currentLed, x, 190, fontSize);
   tft.drawCentreString("Central de Controle", x, 40, fontSize);
-  String display_text = "Valor do sensor: " + String(display_sensor);
+
+  String display_text = "Temperatura: " + String(temperature);
   tft.drawCentreString(display_text, x, 65, fontSize);
+  String display_text = "Umidade: " + String(humidity);
+  tft.drawCentreString(display_text, x, 70, fontSize);
+  String display_text = "Umidade do solo: " + String(soil_humidity);
+  tft.drawCentreString(display_text, x, 75, fontSize);
 
   if (dictLeds[currentLed] == false)
   {
@@ -236,12 +245,9 @@ void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
   memcpy(&sensorData, incomingData, sizeof(sensorData));
   TS_Point p = ts.getPoint();
-  printTouchToDisplay(p);
-  display_sensor += 1;
-  // Definir as variaveis globais a ser exibidas
+  temperature = sensorData.temperature;
+  humidity = sensorData.humidity;
+  soil_humidity = sensorData.soil_humidity;
 
-  // Serial.print("id: ");
-  // Serial.println(sensorData.sensor_id);
-  // Serial.print("number: ");
-  // Serial.println(sensorData.sensor_number);
+  printTouchToDisplay(p);
 }
