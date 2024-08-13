@@ -42,9 +42,9 @@ float humidity;
 int soil_humidity;
 int active_time = 0;
 
-int auto_temperature = 1000;
-int auto_humidity = 1000;
-int auto_soil_humidity = 1000;
+int auto_temperature = 30;
+int auto_humidity = 60;
+int auto_soil_humidity = 4000;
 int auto_active_time = 30;
 
 SPIClass mySpi = SPIClass(VSPI);
@@ -268,35 +268,35 @@ void loop()
 
     // Temperatura
     if (currentTela == "Tela 2" and x_tela > 170 and x_tela < 195 and y_tela > 40 and y_tela < 50) {
-      if (auto_temperature - 500 >=0) {
-        auto_temperature-=500;
+      if (auto_temperature - 5 >=0) {
+        auto_temperature-=5;
       } 
     }
 
     else if (currentTela == "Tela 2" and x_tela > 240 and x_tela < 320 and y_tela > 40 and y_tela < 50) {
-        auto_temperature+=500;
+        auto_temperature+=5;
     }
 
     //Umidade
     if (currentTela == "Tela 2" and x_tela > 170 and x_tela < 195 and y_tela > 40 +35 and y_tela < 50 +35 ) {
-      if (auto_humidity - 500 >=0) {
-        auto_humidity-=500;
+      if (auto_humidity - 10 >=0) {
+        auto_humidity-=10;
       } 
     }
 
     else if (currentTela == "Tela 2" and x_tela > 240 and x_tela < 320 and y_tela > 40 +35 and y_tela < 50 +35) {
-        auto_humidity+=500;
+        auto_humidity+=10;
     }
 
     //Umidade do Solo
     if (currentTela == "Tela 2" and x_tela > 170 and x_tela < 195 and y_tela > 40 +70 and y_tela < 50 +70) {
-      if (auto_soil_humidity - 500 >=0) {
-        auto_soil_humidity-=500;
+      if (auto_soil_humidity - 1000 >=0) {
+        auto_soil_humidity-=1000;
       } 
     }
 
     else if (currentTela == "Tela 2" and x_tela > 240 and x_tela < 320 and y_tela > 40 +70 and y_tela < 50 +70) {
-        auto_soil_humidity+=500;
+        auto_soil_humidity+=1000;
     }
 
     //Tempo Acionado
