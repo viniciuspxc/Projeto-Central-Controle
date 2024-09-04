@@ -6,6 +6,8 @@
 #include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 #define XPT2046_IRQ 36
 #define XPT2046_MOSI 32
@@ -72,6 +74,8 @@ int buttonVetic = 50;
 int fontSize = 5;
 
 boolean ButtonOn = false;
+boolean taskActive = false;
+SemaphoreHandle_t spiMutex;
 
 std::map<String, boolean> dictTela = {
     {"  ", false},
@@ -90,6 +94,7 @@ void setup()
 
   ButtonOn = false;
   active_time = 0;
+  spiMutex = xSemaphoreCreateMutex();
 
   // Inicializar a tela na "Tela 1"
   currentTela = "Tela 1";
@@ -143,6 +148,7 @@ void setup()
 
 void printTouchToDisplay(TS_Point p)
 {
+  if (xSemaphoreTake(spiMutex, portMAX_DELAY) == pdTRUE) {
   // Clear screen first
   tft.fillScreen(TFT_BLACK);
 
@@ -216,6 +222,8 @@ void printTouchToDisplay(TS_Point p)
     // Tempo Acionado
     tft.fillTriangle(190, 135, 175, 145, 190, 155, TFT_WHITE);
     tft.fillTriangle(305, 135, 320, 145, 305, 155, TFT_WHITE);
+    }
+    xSemaphoreGive(spiMutex);
   }
 
   SendPinData(ButtonOn);
@@ -232,8 +240,12 @@ void loop()
     {
       ButtonOn = true;
 
-      active_time = auto_active_time;
-      xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+      
+      if (!taskActive) {
+        active_time = auto_active_time;
+        taskActive = true;
+        xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+      }
     }
   }
 
@@ -249,9 +261,11 @@ void loop()
       ButtonOn = !ButtonOn;
       if (ButtonOn)
       {
-        active_time = auto_active_time;
-
-        xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+        if (!taskActive) {
+          active_time = auto_active_time;
+          taskActive = true;
+          xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+        }
       }
       else
         active_time = 0;
@@ -365,25 +379,24 @@ void loop2(void *pvParameters)
     const TickType_t xDelay = pdMS_TO_TICKS(1000);
     xLastWakeTime = xTaskGetTickCount();
 
-    for (; active_time >= 1; --active_time)
-    {
-      // Serial.println("signal ON");
-
-      vTaskDelayUntil(&xLastWakeTime, xDelay);
-
-      if (currentTela == "Tela 1")
-      {
+    for (; active_time >= 1; --active_time) {
+      if (xSemaphoreTake(spiMutex, portMAX_DELAY) == pdTRUE && currentTela == "Tela 1") {
+        // Update display with active_time
         tft.fillRect(200, 130, 30, 30, TFT_BLACK);
         tft.setTextColor(TFT_WHITE, TFT_BLACK);
         if (active_time > 0)
           tft.drawCentreString(String(active_time), 214, 140, 2);
         else
           tft.drawCentreString("0", 214, 140, 2);
+
+        xSemaphoreGive(spiMutex); // Release the mutex after SPI operations
       }
+      vTaskDelayUntil(&xLastWakeTime, xDelay);
     }
   }
 
   ButtonOn = false;
+  taskActive = false;
   // Serial.println("signal OFF");
   vTaskDelay(200);
   vTaskDelete(NULL);
