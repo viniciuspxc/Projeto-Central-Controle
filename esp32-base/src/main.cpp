@@ -10,6 +10,7 @@ DHT dht(DPIN, DTYPE);
 #define soil_pin 34
 
 #define LED 2
+#define RELAY 26
 #define BUTTON 13
 // REPLACE WITH YOUR RECEIVER MAC Address
 uint8_t broadcastAddress[] = {0xA0, 0xA3, 0xB3, 0xAB, 0x5F, 0x7C}; // A0:A3:B3:AB:5F:7C
@@ -18,7 +19,6 @@ esp_now_peer_info_t peerInfo;
 // Structure to receive
 typedef struct pin_message
 {
-  int pin_id;
   bool pin_on;
 } pin_message;
 pin_message pinData;
@@ -46,6 +46,7 @@ void setup()
   Serial.println(WiFi.macAddress());        // retorna o endereço MAC do dispositivo
 
   pinMode(LED, OUTPUT);
+  pinMode(RELAY, OUTPUT);
   pinMode(BUTTON, INPUT_PULLUP);
 
   // Init ESP-NOW
@@ -77,13 +78,11 @@ void loop()
   float temperature = dht.readTemperature(); // temperatura C
   // float tf = dht.readTemperature(true); // temperatura F
   float humidity = dht.readHumidity(); // Umidade
-  if (temperature == true && humidity == true)
-  {
-    String print_string = "Temperatura: " + String(temperature) + "ºC";
-    Serial.println(print_string);
-    String print_string = "Umidade: " + String(humidity) + "ºC";
-    Serial.println(print_string);
-  }
+
+  String print_temperature = "Temperatura: " + String(temperature) + "ºC";
+  Serial.println(print_temperature);
+  String print_humidity = "Umidade: " + String(humidity) + "ºC";
+  Serial.println(print_humidity);
 
   int soil_humidity = analogRead(soil_pin);
 
@@ -98,7 +97,7 @@ void loop()
   sensorData.soil_humidity = soil_humidity;
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&sensorData, sizeof(sensorData));
 
-  delay(2000);
+  delay(5000);
 }
 
 // callback when data is sent
@@ -115,9 +114,11 @@ void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len)
   if (pinData.pin_on == true)
   {
     digitalWrite(LED, HIGH);
+    digitalWrite(RELAY, HIGH);
   }
   else
   {
     digitalWrite(LED, LOW);
+    digitalWrite(RELAY, LOW);
   }
 }

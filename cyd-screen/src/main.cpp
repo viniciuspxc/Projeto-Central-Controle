@@ -32,12 +32,12 @@ void SendPinData(bool buttonState)
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&pinData, sizeof(pinData));
   if (result == ESP_OK)
   {
-    Serial.print("Sent button state: ");
-    Serial.println(buttonState);
+    // Serial.print("Sent button state: ");
+    // Serial.println(buttonState);
   }
   else
   {
-    Serial.println("Error sending the data");
+    // Serial.println("Error sending the data");
   }
 };
 
@@ -57,9 +57,9 @@ int soil_humidity;
 int active_time = 0;
 
 int auto_temperature = 30;
-int auto_humidity = 60;
-int auto_soil_humidity = 100;
-int auto_active_time = 30;
+int auto_humidity = 50;
+int auto_soil_humidity = 4100;
+int auto_active_time = 20;
 
 SPIClass mySpi = SPIClass(VSPI);
 XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
@@ -74,7 +74,7 @@ int fontSize = 5;
 boolean ButtonOn = false;
 
 std::map<String, boolean> dictTela = {
-    {"Tela 1", false},
+    {"  ", false},
     {"Tela 2", false}};
 String listTela[] = {"Tela 1", "Tela 2"};
 String currentTela = "";
@@ -84,19 +84,25 @@ void loop2(void *pvParameters);
 
 void setup()
 {
-  Serial.begin(115200);
+  // disableCore0WDT();
+  // disableCore1WDT();
+  // Serial.begin(115200);
 
   ButtonOn = false;
   active_time = 0;
 
-  WiFi.mode(WIFI_MODE_STA);          // configura o WIFi para o Modo de estação WiFi
-  Serial.print("Endereço MAC: ");    // A0:A3:B3:AB:5F:7C
-  Serial.println(WiFi.macAddress()); // retorna o endereço MAC do dispositivo
+  // Inicializar a tela na "Tela 1"
+  currentTela = "Tela 1";
+  currentIndex = 0;
+
+  WiFi.mode(WIFI_MODE_STA); // configura o WIFi para o Modo de estação WiFi
+  // Serial.print("Endereço MAC: ");    // A0:A3:B3:AB:5F:7C
+  // Serial.println(WiFi.macAddress()); // retorna o endereço MAC do dispositivo
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK)
   {
-    Serial.println("Error initializing ESP-NOW");
+    // Serial.println("Error initializing ESP-NOW");
     return;
   }
   esp_now_register_recv_cb(OnDataReceived);
@@ -112,7 +118,7 @@ void setup()
   // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK)
   {
-    Serial.println("Failed to add peer");
+    // Serial.println("Failed to add peer");
     return;
   }
 
@@ -133,17 +139,6 @@ void setup()
   int fontSize = 2;
 
   tft.drawCentreString("Touch Screen to Start", x, y, fontSize);
-}
-
-void printTouchToSerial(TS_Point p)
-{
-  Serial.print("Pressure = ");
-  Serial.print(p.z);
-  Serial.print(", x = ");
-  Serial.print(p.x);
-  Serial.print(", y = ");
-  Serial.print(p.y);
-  Serial.println();
 }
 
 void printTouchToDisplay(TS_Point p)
@@ -224,26 +219,22 @@ void printTouchToDisplay(TS_Point p)
   }
 
   SendPinData(ButtonOn);
-  delay(500);
+  delay(1000);
 }
 
 void loop()
 {
-  //  Temperatura                         Umidade                      Umidade do Solo
-  if (!ButtonOn and (temperature >= auto_temperature or humidity >= auto_humidity or soil_humidity >= auto_soil_humidity))
+  if (ButtonOn == false)
   {
-    ButtonOn = true;
+    if ((temperature >= auto_temperature && !isnan(temperature) && temperature != 0) ||
+        (humidity <= auto_humidity && !isnan(humidity) && humidity != 0) ||
+        (soil_humidity >= auto_soil_humidity && !isnan(soil_humidity) && soil_humidity != 0))
+    {
+      ButtonOn = true;
 
-    active_time = auto_active_time;
-    xTaskCreatePinnedToCore(
-        loop2,   // Function to implement the task
-        "loop2", // Name of the task
-        64000,   // Stack size in bytes
-        NULL,    // Task input parameter
-        0,       // Priority of the task
-        NULL,    // Task handle.
-        0        // Core where the task should run
-    );
+      active_time = auto_active_time;
+      xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+    }
   }
 
   if (ts.tirqTouched() && ts.touched())
@@ -256,27 +247,17 @@ void loop()
     if (currentTela == "Tela 1" and x_tela > x - buttonHoriz / 2 and x_tela < x + buttonHoriz / 2 and y_tela > y + 75 and y_tela < y + buttonVetic + 75)
     {
       ButtonOn = !ButtonOn;
-
       if (ButtonOn)
       {
         active_time = auto_active_time;
 
-        xTaskCreatePinnedToCore(
-            loop2,   // Function to implement the task
-            "loop2", // Name of the task
-            64000,   // Stack size in bytes
-            NULL,    // Task input parameter
-            0,       // Priority of the task
-            NULL,    // Task handle.
-            0        // Core where the task should run
-        );
+        xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
       }
       else
         active_time = 0;
     }
 
     int step = 1;
-
     // Temperatura
     if (currentTela == "Tela 2" and x_tela > 170 and x_tela < 195 and y_tela > 30 and y_tela < 60)
     {
@@ -285,7 +266,6 @@ void loop()
         auto_temperature -= step;
       }
     }
-
     else if (currentTela == "Tela 2" and x_tela > 240 and x_tela < 320 and y_tela > 30 and y_tela < 60)
     {
       auto_temperature += step;
@@ -299,7 +279,6 @@ void loop()
         auto_humidity -= step;
       }
     }
-
     else if (currentTela == "Tela 2" and x_tela > 240 and x_tela < 320 and y_tela > 40 + 25 and y_tela < 50 + 45)
     {
       auto_humidity += step;
@@ -313,7 +292,6 @@ void loop()
         auto_soil_humidity -= step * 100;
       }
     }
-
     else if (currentTela == "Tela 2" and x_tela > 240 and x_tela < 320 and y_tela > 40 + 60 and y_tela < 50 + 80)
     {
       auto_soil_humidity += step * 100;
@@ -327,12 +305,10 @@ void loop()
         auto_active_time -= step;
       }
     }
-
     else if (currentTela == "Tela 2" and x_tela > 240 and x_tela < 320 and y_tela > 40 + 95 and y_tela < 50 + 115)
     {
       auto_active_time += step;
     }
-
     else if (x_tela > 20 and x_tela < 100 and y_tela > 180 and y_tela < 220)
     {
       currentIndex = currentIndex - 1;
@@ -341,7 +317,6 @@ void loop()
       currentTela = listTela[currentIndex];
       delay(300);
     }
-
     else if (x_tela > 220 and x_tela < 300 and y_tela > 180 and y_tela < 220)
     {
       currentIndex = currentIndex + 1;
@@ -351,12 +326,7 @@ void loop()
       delay(300);
     }
 
-    if (currentTela == "")
-      currentTela = "Tela 1";
-
-    // printTouchToSerial(p);
     printTouchToDisplay(p);
-
     delay(100);
   }
 }
@@ -380,36 +350,41 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
   memcpy(&sensorData, incomingData, sizeof(sensorData));
-  TS_Point p = ts.getPoint();
   temperature = sensorData.temperature;
   humidity = sensorData.humidity;
   soil_humidity = sensorData.soil_humidity;
 
-  printTouchToDisplay(p);
+  printTouchToDisplay(ts.getPoint());
 }
 
 void loop2(void *pvParameters)
 {
-  for (; active_time >= 1; --active_time)
+  if (ButtonOn)
   {
-    Serial.println("signal ON");
-    SendPinData(ButtonOn);
+    TickType_t xLastWakeTime;
+    const TickType_t xDelay = pdMS_TO_TICKS(1000);
+    xLastWakeTime = xTaskGetTickCount();
 
-    delay(1000);
-    if (currentTela == "Tela 1")
+    for (; active_time >= 1; --active_time)
     {
-      tft.fillRect(200, 130, 30, 30, TFT_BLACK);
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
-      if (active_time > 0)
-        tft.drawCentreString(String(active_time), 214, 140, 2);
-      else
-        tft.drawCentreString("0", 214, 140, 2);
+      // Serial.println("signal ON");
+
+      vTaskDelayUntil(&xLastWakeTime, xDelay);
+
+      if (currentTela == "Tela 1")
+      {
+        tft.fillRect(200, 130, 30, 30, TFT_BLACK);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        if (active_time > 0)
+          tft.drawCentreString(String(active_time), 214, 140, 2);
+        else
+          tft.drawCentreString("0", 214, 140, 2);
+      }
     }
   }
 
   ButtonOn = false;
-  printTouchToDisplay(TS_Point(1, 1, 1));
-  Serial.println("signal OFF");
-
+  // Serial.println("signal OFF");
+  vTaskDelay(200);
   vTaskDelete(NULL);
 }

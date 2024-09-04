@@ -12,5 +12,9 @@
 			"path": "esp32-base"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"cmath": "cpp"
+		}
+	}
 }
