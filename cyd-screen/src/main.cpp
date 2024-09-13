@@ -6,16 +6,14 @@
 #include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <esp_now.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
 
 #include <spiffsheader.h>
 #include <telegram.h>
 #include <main.h>
 #include <mqtt.h>
 
-const char *ssid = "BIX NET 00";
-const char *password = "queirosgenusa";
+const char *ssid = "esp32connect";
+const char *password = "esp32con";
 
 float temperature;
 float humidity;
@@ -48,7 +46,7 @@ String listTela[] = {"Tela 1", "Tela 2"};
 String currentTela = "";
 int currentIndex = 0;
 
-void loop2(void *pvParameters);
+void buttonTimerCount(void *pvParameters);
 
 void TaskTelegram(void *pvParameters)
 {
@@ -61,7 +59,7 @@ void TaskTelegram(void *pvParameters)
 
 void setup()
 {
-  Serial.begin(115200);
+  // Serial.begin(115200);
   SPIFFS.begin(true);
 
   // Verifica se o arquivo já existe
@@ -96,19 +94,15 @@ void setup()
   WiFi.mode(WIFI_MODE_STA); // configura o WIFi para o Modo de estação WiFi
   // Serial.print("Endereço MAC: ");    // A0:A3:B3:AB:5F:7C
   // Serial.println(WiFi.macAddress()); // retorna o endereço MAC do dispositivo
-  // WiFi.begin(ssid, password);
-  // while (WiFi.status() != WL_CONNECTED)
-  // {
-  //   delay(1000);
-  // }
-
-  // initTelegramBot();
-
-  if (esp_now_init() != ESP_OK)
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
   {
-    // Serial.println("Error initializing ESP-NOW");
-    return;
+    delay(1000);
   }
+
+  initTelegramBot();
+
+  esp_now_init();
   esp_now_register_recv_cb(OnDataReceived);
   esp_now_register_send_cb(OnDataSent);
 
@@ -141,6 +135,8 @@ void setup()
   int fontSize = 2;
 
   tft.drawCentreString("Touch Screen to Start", x, y, fontSize);
+
+  xTaskCreatePinnedToCore(SendPinData, "SendPinData", 8192, NULL, 1, NULL, 0);
   // xTaskCreatePinnedToCore(TaskTelegram, "TaskTelegram", 8192, NULL, 1, NULL, 1);
 
   // init_mqtt();
@@ -149,86 +145,83 @@ void setup()
 
 void printTouchToDisplay(TS_Point p)
 {
-  if (xSemaphoreTake(spiMutex, portMAX_DELAY) == pdTRUE)
+
+  // Clear screen first
+  tft.fillScreen(TFT_BLACK);
+
+  int x = 320 / 2; // center of display
+  int y = 100;
+  int fontSize = 4;
+
+  tft.fillTriangle(80, 180, 20, 200, 80, 220, TFT_WHITE);
+  tft.fillTriangle(240, 180, 300, 200, 240, 220, TFT_WHITE);
+
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  // tft.drawCentreString(currentTela, x, 190, fontSize);
+
+  if (currentTela == "Tela 1")
   {
-    // Clear screen first
-    tft.fillScreen(TFT_BLACK);
+    tft.drawCentreString("Central de Controle", x, 20, fontSize);
 
-    int x = 320 / 2; // center of display
-    int y = 100;
-    int fontSize = 4;
-
-    tft.fillTriangle(80, 180, 20, 200, 80, 220, TFT_WHITE);
-    tft.fillTriangle(240, 180, 300, 200, 240, 220, TFT_WHITE);
-
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    // tft.drawCentreString(currentTela, x, 190, fontSize);
-
-    if (currentTela == "Tela 1")
-    {
-      tft.drawCentreString("Central de Controle", x, 20, fontSize);
-
-      String display_text = "Temperatura: " + String(temperature);
-      tft.drawCentreString(display_text, x, 65, fontSize - 2);
-      display_text = "Umidade do Ar: " + String(humidity);
-      tft.drawCentreString(display_text, x, 90, fontSize - 2);
-      display_text = "Umidade do solo: " + String(soil_humidity);
-      tft.drawCentreString(display_text, x, 115, fontSize - 2);
-      if (active_time > 0)
-        display_text = "Tempo acionado: " + String(active_time);
-      else
-        display_text = "Tempo acionado: 0";
-      tft.drawCentreString(display_text, x, 140, fontSize - 2);
-
-      if (ButtonOn == false)
-      {
-        tft.fillRect(x - buttonHoriz / 2, y + 75, buttonHoriz, buttonVetic, TFT_RED);
-        tft.setTextColor(TFT_BLACK, TFT_RED);
-        tft.drawCentreString("OFF", x, y + 15 + 75, fontSize);
-      }
-      else
-      {
-        tft.fillRect(x - buttonHoriz / 2, y + 75, buttonHoriz, buttonVetic, TFT_GREEN);
-        tft.setTextColor(TFT_BLACK, TFT_GREEN);
-        tft.drawCentreString("ON", x, y + 15 + 75, fontSize);
-      }
-    }
-
+    String display_text = "Temperatura: " + String(temperature);
+    tft.drawCentreString(display_text, x, 65, fontSize - 2);
+    display_text = "Umidade do Ar: " + String(humidity);
+    tft.drawCentreString(display_text, x, 90, fontSize - 2);
+    display_text = "Umidade do solo: " + String(soil_humidity);
+    tft.drawCentreString(display_text, x, 115, fontSize - 2);
+    if (active_time > 0)
+      display_text = "Tempo acionado: " + String(active_time);
     else
-    { // Tela 2
-      tft.drawCentreString("Acionamento", x, 180, fontSize);
-      tft.drawCentreString("Automatico", x, 210, fontSize);
+      display_text = "Tempo acionado: 0";
+    tft.drawCentreString(display_text, x, 140, fontSize - 2);
 
-      tft.drawCentreString("Temperatura: ", 100, 30, fontSize - 2);
-      tft.drawCentreString("Umidade: ", 100, 65, fontSize - 2);
-      tft.drawCentreString("Umidade do Solo: ", 105, 100, fontSize - 2);
-      tft.drawCentreString("Tempo Acionado: ", 105, 135, fontSize - 2);
-
-      tft.drawCentreString("> " + String(auto_temperature) + " Celsius", 247, 30, fontSize - 2);
-      tft.drawCentreString("< " + String(auto_humidity), 247, 65, fontSize - 2);
-      tft.drawCentreString("< " + String(auto_soil_humidity), 247, 100, fontSize - 2);
-      tft.drawCentreString(String(auto_active_time) + "Seconds", 247, 135, fontSize - 2);
-
-      // Temperatura
-      tft.fillTriangle(190, 30, 175, 40, 190, 50, TFT_WHITE);
-      tft.fillTriangle(305, 30, 320, 40, 305, 50, TFT_WHITE);
-
-      // Umidade
-      tft.fillTriangle(190, 65, 175, 75, 190, 85, TFT_WHITE);
-      tft.fillTriangle(305, 65, 320, 75, 305, 85, TFT_WHITE);
-
-      // Umidade do Solo
-      tft.fillTriangle(190, 100, 175, 110, 190, 120, TFT_WHITE);
-      tft.fillTriangle(305, 100, 320, 110, 305, 120, TFT_WHITE);
-
-      // Tempo Acionado
-      tft.fillTriangle(190, 135, 175, 145, 190, 155, TFT_WHITE);
-      tft.fillTriangle(305, 135, 320, 145, 305, 155, TFT_WHITE);
+    if (ButtonOn == false)
+    {
+      tft.fillRect(x - buttonHoriz / 2, y + 75, buttonHoriz, buttonVetic, TFT_RED);
+      tft.setTextColor(TFT_BLACK, TFT_RED);
+      tft.drawCentreString("OFF", x, y + 15 + 75, fontSize);
     }
-    xSemaphoreGive(spiMutex);
+    else
+    {
+      tft.fillRect(x - buttonHoriz / 2, y + 75, buttonHoriz, buttonVetic, TFT_GREEN);
+      tft.setTextColor(TFT_BLACK, TFT_GREEN);
+      tft.drawCentreString("ON", x, y + 15 + 75, fontSize);
+    }
   }
 
-  SendPinData(ButtonOn);
+  else
+  { // Tela 2
+    tft.drawCentreString("Acionamento", x, 180, fontSize);
+    tft.drawCentreString("Automatico", x, 210, fontSize);
+
+    tft.drawCentreString("Temperatura: ", 100, 30, fontSize - 2);
+    tft.drawCentreString("Umidade: ", 100, 65, fontSize - 2);
+    tft.drawCentreString("Umidade do Solo: ", 105, 100, fontSize - 2);
+    tft.drawCentreString("Tempo Acionado: ", 105, 135, fontSize - 2);
+
+    tft.drawCentreString("> " + String(auto_temperature) + " Celsius", 247, 30, fontSize - 2);
+    tft.drawCentreString("< " + String(auto_humidity), 247, 65, fontSize - 2);
+    tft.drawCentreString("< " + String(auto_soil_humidity), 247, 100, fontSize - 2);
+    tft.drawCentreString(String(auto_active_time) + " Seconds", 247, 135, fontSize - 2);
+
+    // Temperatura
+    tft.fillTriangle(190, 30, 175, 40, 190, 50, TFT_WHITE);
+    tft.fillTriangle(305, 30, 320, 40, 305, 50, TFT_WHITE);
+
+    // Umidade
+    tft.fillTriangle(190, 65, 175, 75, 190, 85, TFT_WHITE);
+    tft.fillTriangle(305, 65, 320, 75, 305, 85, TFT_WHITE);
+
+    // Umidade do Solo
+    tft.fillTriangle(190, 100, 175, 110, 190, 120, TFT_WHITE);
+    tft.fillTriangle(305, 100, 320, 110, 305, 120, TFT_WHITE);
+
+    // Tempo Acionado
+    tft.fillTriangle(190, 135, 175, 145, 190, 155, TFT_WHITE);
+    tft.fillTriangle(305, 135, 320, 145, 305, 155, TFT_WHITE);
+  }
+
+  // SendPinData(ButtonOn);
   delay(1000);
 }
 
@@ -250,9 +243,9 @@ void loop()
 
       if (!taskActive)
       {
-        active_time = auto_active_time;
         taskActive = true;
-        xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+        active_time = auto_active_time;
+        xTaskCreatePinnedToCore(buttonTimerCount, "buttonTimerCount", 8192, NULL, 1, NULL, 0);
       }
     }
   }
@@ -271,9 +264,9 @@ void loop()
       {
         if (!taskActive)
         {
-          active_time = auto_active_time;
           taskActive = true;
-          xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+          active_time = auto_active_time;
+          xTaskCreatePinnedToCore(buttonTimerCount, "buttonTimerCount", 8192, NULL, 1, NULL, 0);
         }
       }
       else
@@ -358,7 +351,7 @@ void loop()
       last_temperature = auto_temperature;
     }
     printTouchToDisplay(p);
-    delay(100);
+    delay(1000);
   }
 }
 
@@ -386,17 +379,18 @@ void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len)
   printTouchToDisplay(ts.getPoint());
 }
 
-void loop2(void *pvParameters)
+void buttonTimerCount(void *pvParameters)
 {
   if (ButtonOn)
   {
+    vTaskDelay(200);
     TickType_t xLastWakeTime;
     const TickType_t xDelay = pdMS_TO_TICKS(1000);
     xLastWakeTime = xTaskGetTickCount();
 
     for (; active_time >= 1; --active_time)
     {
-      if (xSemaphoreTake(spiMutex, portMAX_DELAY) == pdTRUE && currentTela == "Tela 1")
+      if (currentTela == "Tela 1")
       {
         // Update display with active_time
         tft.fillRect(200, 130, 30, 30, TFT_BLACK);
@@ -405,8 +399,6 @@ void loop2(void *pvParameters)
           tft.drawCentreString(String(active_time), 214, 140, 2);
         else
           tft.drawCentreString("0", 214, 140, 2);
-
-        xSemaphoreGive(spiMutex); // Release the mutex after SPI operations
       }
       vTaskDelayUntil(&xLastWakeTime, xDelay);
     }

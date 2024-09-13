@@ -11,6 +11,8 @@
 uint8_t broadcastAddress[] = {0xEC, 0x64, 0xC9, 0x85, 0xA3, 0x9C}; // EC:64:C9:85:A3:9C
 esp_now_peer_info_t peerInfo;
 
+extern boolean ButtonOn;
+
 // Structure to send
 typedef struct pin_message
 {
@@ -19,11 +21,20 @@ typedef struct pin_message
 pin_message pinData;
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 
-void SendPinData(bool buttonState)
+void SendPinData(void *pvParameters)
 {
-    // struct gets button state
-    pinData.pin_on = buttonState;
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&pinData, sizeof(pinData));
+    while (true)
+    {
+        TickType_t xLastWakeTime;
+        const TickType_t xDelay = pdMS_TO_TICKS(4000);
+        xLastWakeTime = xTaskGetTickCount();
+
+        // struct gets button state
+        pinData.pin_on = ButtonOn;
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&pinData, sizeof(pinData));
+
+        vTaskDelayUntil(&xLastWakeTime, xDelay);
+    }
 };
 
 // Structure to receive
