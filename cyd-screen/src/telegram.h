@@ -4,14 +4,9 @@
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 
-extern const char* telegramBotToken;
-extern WiFiClientSecure client;
-extern UniversalTelegramBot bot;
-extern long botLastCheckTime;
-extern const int BOT_MTBS;
-
 void initTelegramBot();
 void handleNewMessages(int numNewMessages);
 void checkTelegramMessages();
+void handleUpdateCommands(String chat_id, String command);
 
 #endif // TELEGRAM_H

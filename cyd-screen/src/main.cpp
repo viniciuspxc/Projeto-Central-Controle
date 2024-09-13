@@ -11,64 +11,16 @@
 
 #include <spiffsheader.h>
 #include <telegram.h>
+#include <main.h>
+#include <mqtt.h>
 
-#define XPT2046_IRQ 36
-#define XPT2046_MOSI 32
-#define XPT2046_MISO 39
-#define XPT2046_CLK 25
-#define XPT2046_CS 33
-
-const char *ssid = "wifiname";
-const char *password = "wifipass";
-
-// REPLACE WITH YOUR RECEIVER MAC Address
-uint8_t broadcastAddress[] = {0xEC, 0x64, 0xC9, 0x85, 0xA3, 0x9C}; // EC:64:C9:85:A3:9C
-esp_now_peer_info_t peerInfo;
-
-// Structure to send
-typedef struct pin_message
-{
-  bool pin_on;
-} pin_message;
-pin_message pinData;
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
-
-void SendPinData(bool buttonState)
-{
-  // struct gets button state
-  pinData.pin_on = buttonState;
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&pinData, sizeof(pinData));
-  if (result == ESP_OK)
-  {
-    // Serial.print("Sent button state: ");
-    // Serial.println(buttonState);
-  }
-  else
-  {
-    // Serial.println("Error sending the data");
-  }
-};
-
-// Structure to receive
-typedef struct sensor_message
-{
-  float temperature;
-  float humidity;
-  int soil_humidity;
-} sensor_message;
-sensor_message sensorData;
-void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len);
+const char *ssid = "BIX NET 00";
+const char *password = "queirosgenusa";
 
 float temperature;
 float humidity;
 int soil_humidity;
 int active_time = 0;
-
-int auto_temperature = 30;
-int auto_humidity = 50;
-int auto_soil_humidity = 4100;
-int auto_active_time = 20;
-bool writeNew = false; // para iniciar novo arquivo
 
 int last_active_time = auto_active_time;
 int last_humidity = auto_humidity;
@@ -97,6 +49,15 @@ String currentTela = "";
 int currentIndex = 0;
 
 void loop2(void *pvParameters);
+
+void TaskTelegram(void *pvParameters)
+{
+  while (true)
+  {
+    checkTelegramMessages(); // Executa em uma tarefa separada
+    vTaskDelay(10000);       // Aguarda entre verificações
+  }
+}
 
 void setup()
 {
@@ -135,27 +96,20 @@ void setup()
   WiFi.mode(WIFI_MODE_STA); // configura o WIFi para o Modo de estação WiFi
   // Serial.print("Endereço MAC: ");    // A0:A3:B3:AB:5F:7C
   // Serial.println(WiFi.macAddress()); // retorna o endereço MAC do dispositivo
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(1000);
-    Serial.println("Conectando ao WiFi...");
-  }
-  Serial.println("Conectado ao WiFi");
+  // WiFi.begin(ssid, password);
+  // while (WiFi.status() != WL_CONNECTED)
+  // {
+  //   delay(1000);
+  // }
 
-  // Inicializa o bot do Telegram
-  
-  initTelegramBot();
+  // initTelegramBot();
 
-  // Init ESP-NOW
   if (esp_now_init() != ESP_OK)
   {
     // Serial.println("Error initializing ESP-NOW");
     return;
   }
   esp_now_register_recv_cb(OnDataReceived);
-
-  // Once ESPNow is successfully Init, we will register for Send CB to get the status of Transmitted packet
   esp_now_register_send_cb(OnDataSent);
 
   // Register peer
@@ -187,6 +141,10 @@ void setup()
   int fontSize = 2;
 
   tft.drawCentreString("Touch Screen to Start", x, y, fontSize);
+  // xTaskCreatePinnedToCore(TaskTelegram, "TaskTelegram", 8192, NULL, 1, NULL, 1);
+
+  // init_mqtt();
+  // mqttClient.publish(SEND_TOPIC, "conectado");
 }
 
 void printTouchToDisplay(TS_Point p)
@@ -276,8 +234,12 @@ void printTouchToDisplay(TS_Point p)
 
 void loop()
 {
+  // if (!mqttClient.connected())
+  // {
+  //   reconnectMQTT();
+  // }
+  // mqttClient.loop();
 
-  checkTelegramMessages();
   if (ButtonOn == false)
   {
     if ((temperature >= auto_temperature && !isnan(temperature) && temperature != 0) ||
@@ -405,12 +367,10 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
   if (status == ESP_NOW_SEND_SUCCESS)
   {
-    // print green icon on top right
     tft.fillCircle(310, 10, 5, TFT_GREEN);
   }
   else
   {
-    // print red icon on top right
     tft.fillCircle(310, 10, 5, TFT_RED);
   }
 }
@@ -454,7 +414,8 @@ void loop2(void *pvParameters)
 
   ButtonOn = false;
   taskActive = false;
-  // Serial.println("signal OFF");
+  printTouchToDisplay(ts.getPoint());
+
   vTaskDelay(200);
   vTaskDelete(NULL);
 }
