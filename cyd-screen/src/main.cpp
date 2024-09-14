@@ -11,7 +11,6 @@
 #include <spiffsheader.h>
 #include <telegram.h>
 #include <main.h>
-#include <mqtt.h>
 
 const int wifiChannel = 1;
 const char *ssid = "esp32connect";
@@ -53,6 +52,14 @@ void TaskTelegram(void *pvParameters)
 {
   while (true)
   {
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      Serial.println("Conectando ao Wi-Fi...");
+      WiFi.begin(ssid, password);
+      vTaskDelay(5000);
+      initTelegramBot();
+    }
+
     checkTelegramMessages(); // Executa em uma tarefa separada
     vTaskDelay(10000);       // Aguarda entre verificações
   }
@@ -95,11 +102,6 @@ void setup()
   // Serial.print("Endereço MAC: ");    // A0:A3:B3:AB:5F:7C
   // Serial.println(WiFi.macAddress()); // retorna o endereço MAC do dispositivo
 
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(1000);
-    Serial.println("Setting as a Wi-Fi Station..");
-  }
   Serial.print("Wi-Fi Channel: ");
   Serial.println(WiFi.channel());
 
@@ -138,8 +140,8 @@ void setup()
 
   // Clear the screen before writing to it
   tft.fillScreen(TFT_BLACK);
-  tft.drawCentreString("Conecting to WIFI...", x, y, fontSize);
 
+  tft.drawCentreString("Conecting to Telegram", x, y, fontSize);
   initTelegramBot();
 
   tft.fillScreen(TFT_BLACK);
