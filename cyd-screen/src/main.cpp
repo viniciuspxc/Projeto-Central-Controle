@@ -6,12 +6,14 @@
 #include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 
 #include <spiffsheader.h>
 #include <telegram.h>
 #include <main.h>
 #include <mqtt.h>
 
+const int wifiChannel = 1;
 const char *ssid = "esp32connect";
 const char *password = "esp32con";
 
@@ -37,7 +39,6 @@ int fontSize = 5;
 
 boolean ButtonOn = false;
 boolean taskActive = false;
-SemaphoreHandle_t spiMutex;
 
 std::map<String, boolean> dictTela = {
     {"  ", false},
@@ -59,7 +60,7 @@ void TaskTelegram(void *pvParameters)
 
 void setup()
 {
-  // Serial.begin(115200);
+  Serial.begin(115200);
   SPIFFS.begin(true);
 
   // Verifica se o arquivo já existe
@@ -85,38 +86,42 @@ void setup()
 
   ButtonOn = false;
   active_time = 0;
-  spiMutex = xSemaphoreCreateMutex();
 
-  // Inicializar a tela na "Tela 1"
   currentTela = "Tela 1";
   currentIndex = 0;
 
-  WiFi.mode(WIFI_MODE_STA); // configura o WIFi para o Modo de estação WiFi
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.begin(ssid, password);
   // Serial.print("Endereço MAC: ");    // A0:A3:B3:AB:5F:7C
   // Serial.println(WiFi.macAddress()); // retorna o endereço MAC do dispositivo
-  WiFi.begin(ssid, password);
+
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(1000);
+    Serial.println("Setting as a Wi-Fi Station..");
   }
+  Serial.print("Wi-Fi Channel: ");
+  Serial.println(WiFi.channel());
 
-  initTelegramBot();
-
-  esp_now_init();
-  esp_now_register_recv_cb(OnDataReceived);
-  esp_now_register_send_cb(OnDataSent);
+  if (esp_now_init() != ESP_OK)
+  {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
 
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
 
-  // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK)
   {
-    // Serial.println("Failed to add peer");
+    Serial.println("Failed to add peer");
     return;
   }
+
+  esp_now_register_recv_cb(OnDataReceived);
+  esp_now_register_send_cb(OnDataSent);
 
   // Start the SPI for the touch screen and init the TS library
   mySpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
@@ -127,20 +132,21 @@ void setup()
   tft.init();
   tft.setRotation(1); // This is the display in landscape
 
-  // Clear the screen before writing to it
-  tft.fillScreen(TFT_BLACK);
-
   int x = 320 / 2; // center of display
   int y = 100;
   int fontSize = 2;
 
+  // Clear the screen before writing to it
+  tft.fillScreen(TFT_BLACK);
+  tft.drawCentreString("Conecting to WIFI...", x, y, fontSize);
+
+  initTelegramBot();
+
+  tft.fillScreen(TFT_BLACK);
   tft.drawCentreString("Touch Screen to Start", x, y, fontSize);
 
-  xTaskCreatePinnedToCore(SendPinData, "SendPinData", 8192, NULL, 1, NULL, 0);
-  // xTaskCreatePinnedToCore(TaskTelegram, "TaskTelegram", 8192, NULL, 1, NULL, 1);
-
-  // init_mqtt();
-  // mqttClient.publish(SEND_TOPIC, "conectado");
+  xTaskCreatePinnedToCore(SendPinData, "SendPinData", 8192, NULL, 2, NULL, 0);
+  xTaskCreatePinnedToCore(TaskTelegram, "TaskTelegram", 8192, NULL, 1, NULL, 1);
 }
 
 void printTouchToDisplay(TS_Point p)
@@ -200,7 +206,7 @@ void printTouchToDisplay(TS_Point p)
     tft.drawCentreString("Tempo Acionado: ", 105, 135, fontSize - 2);
 
     tft.drawCentreString("> " + String(auto_temperature) + " Celsius", 247, 30, fontSize - 2);
-    tft.drawCentreString("< " + String(auto_humidity), 247, 65, fontSize - 2);
+    tft.drawCentreString("< " + String(auto_humidity) + " UR", 247, 65, fontSize - 2);
     tft.drawCentreString("< " + String(auto_soil_humidity), 247, 100, fontSize - 2);
     tft.drawCentreString(String(auto_active_time) + " Seconds", 247, 135, fontSize - 2);
 
@@ -243,8 +249,8 @@ void loop()
 
       if (!taskActive)
       {
-        taskActive = true;
         active_time = auto_active_time;
+        taskActive = true;
         xTaskCreatePinnedToCore(buttonTimerCount, "buttonTimerCount", 8192, NULL, 1, NULL, 0);
       }
     }
@@ -264,8 +270,8 @@ void loop()
       {
         if (!taskActive)
         {
-          taskActive = true;
           active_time = auto_active_time;
+          taskActive = true;
           xTaskCreatePinnedToCore(buttonTimerCount, "buttonTimerCount", 8192, NULL, 1, NULL, 0);
         }
       }
@@ -361,6 +367,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
   if (status == ESP_NOW_SEND_SUCCESS)
   {
     tft.fillCircle(310, 10, 5, TFT_GREEN);
+    Serial.println("Enviou!");
   }
   else
   {

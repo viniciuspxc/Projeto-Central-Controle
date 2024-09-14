@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include "DHT.h"
+#include <esp_wifi.h>
 
 #define DPIN 15 // DHT11 HW-036)
 #define DTYPE DHT11
@@ -36,7 +37,7 @@ typedef struct sensor_message
 sensor_message sensorData;
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 
-void loop2(void *pvParameters);
+void sendSensorData(void *pvParameters);
 
 void setup()
 {
@@ -45,9 +46,13 @@ void setup()
 
   dht.begin();
 
-  WiFi.mode(WIFI_MODE_STA);                 // configura o WIFi para o Modo de estação WiFi
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.begin("wifi", "password");
+
   Serial.print("Endereço MAC ESP32 PIN: "); // EC:64:C9:85:A3:9C
   Serial.println(WiFi.macAddress());        // retorna o endereço MAC do dispositivo
+  Serial.print("Wi-Fi Channel: ");
+  Serial.println(WiFi.channel());
 
   pinMode(LED, OUTPUT);
   pinMode(RELAY, OUTPUT);
@@ -60,8 +65,6 @@ void setup()
     return;
   }
   esp_now_register_recv_cb(OnDataReceived);
-
-  // Once ESPNow is successfully Init, we will register for Send CB to get the status of Transmitted packet
   esp_now_register_send_cb(OnDataSent);
 
   // Register peer
@@ -76,7 +79,7 @@ void setup()
     return;
   }
 
-  xTaskCreatePinnedToCore(loop2, "loop2", 8192, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(sendSensorData, "sendSensorData", 8192, NULL, 1, NULL, 0);
 }
 
 void loop()
@@ -119,7 +122,7 @@ void OnDataReceived(const uint8_t *mac, const uint8_t *incomingData, int len)
   }
 }
 
-void loop2(void *pvParameters)
+void sendSensorData(void *pvParameters)
 {
   while (true)
   {
@@ -146,6 +149,6 @@ void loop2(void *pvParameters)
     sensorData.soil_humidity = soil_humidity;
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&sensorData, sizeof(sensorData));
-    vTaskDelay(10000);
+    vTaskDelay(5000);
   }
 }

@@ -26,7 +26,7 @@ void SendPinData(void *pvParameters)
     while (true)
     {
         TickType_t xLastWakeTime;
-        const TickType_t xDelay = pdMS_TO_TICKS(4000);
+        const TickType_t xDelay = pdMS_TO_TICKS(2000);
         xLastWakeTime = xTaskGetTickCount();
 
         // struct gets button state
