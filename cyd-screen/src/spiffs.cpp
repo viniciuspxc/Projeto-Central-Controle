@@ -1,6 +1,12 @@
 // spiffs.cpp
 #include "spiffsheader.h"
 
+int auto_temperature = 30;
+int auto_humidity = 50;
+int auto_soil_humidity = 4100;
+int auto_active_time = 20;
+bool writeNew = false; // para iniciar novo arquivo
+
 AutoConfig readVariablesFromFile()
 {
     AutoConfig config;
