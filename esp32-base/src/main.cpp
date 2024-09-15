@@ -187,22 +187,28 @@ void sendThingSpeak(void *pvParameters)
       continue;
     }
 
-    ThingSpeak.setField(1, temperature);   // Campo 1: Temperatura
-    ThingSpeak.setField(2, humidity);      // Campo 2: Umidade
-    ThingSpeak.setField(3, soil_humidity); // Campo 3: Umidade do Solo
-
-    // Envia os dados ao ThingSpeak
-    int httpCode = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
-
-    if (httpCode == 200)
+    if (!isnan(temperature) && !isnan(humidity))
     {
-      Serial.println("Dados enviados com sucesso ao ThingSpeak.");
+      ThingSpeak.setField(1, temperature);   // Campo 1: Temperatura
+      ThingSpeak.setField(2, humidity);      // Campo 2: Umidade
+      ThingSpeak.setField(3, soil_humidity); // Campo 3: Umidade do Solo
+
+      // Envia os dados ao ThingSpeak
+      int httpCode = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+
+      if (httpCode == 200)
+      {
+        Serial.println("Dados enviados com sucesso ao ThingSpeak.");
+      }
+      else
+      {
+        Serial.printf("Erro ao enviar os dados ao ThingSpeak. Código HTTP: %d\n", httpCode);
+      }
+      vTaskDelay(300000 / portTICK_PERIOD_MS);
     }
     else
     {
-      Serial.printf("Erro ao enviar os dados ao ThingSpeak. Código HTTP: %d\n", httpCode);
+      vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
-
-    vTaskDelay(300000 / portTICK_PERIOD_MS); // Envia dados a cada 20 segundos
   }
 }
