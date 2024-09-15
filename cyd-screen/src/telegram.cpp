@@ -2,6 +2,7 @@
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 
+// #include <main.h>
 #include <telegram.h>
 #include <spiffsheader.h>
 
@@ -31,6 +32,7 @@ void handleNewMessages(int numNewMessages)
         {
             String welcome = "Commands:\n";
             welcome += "status - show automatic values configuration\n";
+            welcome += "sensor - show automatic values configuration\n";
             welcome += "update <variable> <value> - update the configuration value\n";
             bot.sendMessage(chat_id, welcome, "");
         }
@@ -41,6 +43,14 @@ void handleNewMessages(int numNewMessages)
             statusMessage += "Auto humidity: " + String(auto_humidity) + "\n";
             statusMessage += "Auto soil_humidity: " + String(auto_soil_humidity) + "\n";
             statusMessage += "Auto active_time: " + String(auto_active_time) + "\n";
+            bot.sendMessage(chat_id, statusMessage, "");
+        }
+        else if (text == "sensor")
+        {
+            // bot.sendMessage(chat_id, text, "");
+            String statusMessage = "Temperature: " + String(temperature) + "\n";
+            statusMessage += "Humidity: " + String(humidity) + "\n";
+            statusMessage += "Soil_humidity: " + String(soil_humidity) + "\n";
             bot.sendMessage(chat_id, statusMessage, "");
         }
         else if (text.startsWith("update "))
@@ -102,7 +112,7 @@ void handleUpdateCommands(String chat_id, String command)
     }
     else
     {
-        bot.sendMessage(chat_id, "Variável inválida! Use: temperature, humidity, soil_humidity, active_time", "");
+        bot.sendMessage(chat_id, "Invalid. Use: temperature, humidity, soil_humidity, active_time", "");
         return;
     }
 

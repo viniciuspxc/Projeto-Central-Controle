@@ -12,13 +12,16 @@ struct AutoConfig
     int auto_active_time;
 };
 
+extern float temperature;
+extern float humidity;
+extern int soil_humidity;
+extern int active_time;
+
 extern int auto_temperature;
 extern int auto_humidity;
 extern int auto_soil_humidity;
 extern int auto_active_time;
 extern bool writeNew; // para iniciar novo arquivo
-
-
 
 void initSPIFFS(bool writeNew, int auto_temperature, int auto_humidity, int auto_soil_humidity, int auto_active_time);
 void writeVariablesToFile(int auto_temperature, int auto_humidity, int auto_soil_humidity, int auto_active_time);
