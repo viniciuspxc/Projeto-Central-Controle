@@ -32,7 +32,7 @@ void handleNewMessages(int numNewMessages)
         {
             String welcome = "Commands:\n";
             welcome += "status - show automatic values configuration\n";
-            welcome += "sensor - show automatic values configuration\n";
+            welcome += "sensor - show sensor values\n";
             welcome += "update <variable> <value> - update the configuration value\n";
             bot.sendMessage(chat_id, welcome, "");
         }
